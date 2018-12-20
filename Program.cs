@@ -1,7 +1,9 @@
 ﻿#define DISPATCHER
+//#define TASK
 #define RANDOM
 using System;
 using System.Diagnostics;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -36,6 +38,7 @@ namespace ConsoleApplication1
             grid.Children.Add(i);
             w.Show();
 
+
             wb = new WriteableBitmap(
                 (int)grid.ActualWidth,
                 (int)grid.ActualHeight,
@@ -54,8 +57,9 @@ namespace ConsoleApplication1
             DrawGrid(10, 15);
 
             var app = new Application();
+            //app.Dispatcher.Hooks.OperationPosted += OnDispatcherPosted;
 #if DISPATCHER
-            _timer = new DispatcherTimer(new TimeSpan(1000), DispatcherPriority.Send, OnDraw, app.Dispatcher);
+            _timer = new DispatcherTimer(new TimeSpan(1000), DispatcherPriority.Render, OnDraw, app.Dispatcher);
             _timer.Start();
 #endif
 
@@ -63,7 +67,7 @@ namespace ConsoleApplication1
             var task = new Task(() =>
             {
                 _sw.Restart();
-                for(int count = 0; count < 720; ++count)
+                for(int count = 0; count < 5000; ++count)
                     OnDraw();
                 _sw.Stop();
             });
@@ -74,6 +78,13 @@ namespace ConsoleApplication1
             Console.WriteLine(_sw.ElapsedMilliseconds);
         }
 
+        private static void OnDispatcherPosted(object sender, DispatcherHookEventArgs e)
+        {
+            var pro = typeof(DispatcherOperation).GetProperty("Name", BindingFlags.Instance | BindingFlags.GetProperty | BindingFlags.NonPublic);
+            var name = pro.GetValue(e.Operation, null);
+            Console.WriteLine(name);
+        }
+
         static int lx = -1;
         static int ly = -1;
         static int x = -1;
@@ -81,6 +92,7 @@ namespace ConsoleApplication1
         static Random r = new Random();
         static bool positiveX = true;
         static bool positiveY = true;
+        static Duration duration = new Duration(new TimeSpan(100));
 
 #if DISPATCHER
         private static void OnDraw(object sender, EventArgs e)
@@ -131,20 +143,29 @@ namespace ConsoleApplication1
             }
 
             // line
+    #if TASK
             Application.Current.Dispatcher.Invoke(() =>
             {
-                if (lx != -1)
+    #endif
+                if (wb.TryLock(duration))
                 {
-                    wb.DrawLine(lx, ly, x, y, Colors.GreenYellow);
+                    if (lx != -1)
+                    {
+                        wb.DrawLine(lx, ly, x, y, Colors.GreenYellow);
+                    }
+
+                    //DrawGrid(10, 15);
+                    wb.FillEllipseCentered(x, y, 5, 5, Colors.GreenYellow);
+                    wb.DrawEllipseCentered(x, y, 6, 6, Colors.Black);
+
+                    lx = x;
+                    ly = y;
+
+                    wb.Unlock();
                 }
-
-                //DrawGrid(10, 15);
-                wb.FillEllipseCentered(x, y, 5, 5, Colors.GreenYellow);
-                wb.DrawEllipseCentered(x, y, 6, 6, Colors.Black);
-
-                lx = x;
-                ly = y;
-            });
+    #if TASK
+        });
+    #endif
 #else
             ++x;
             if (x < w)
