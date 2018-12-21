@@ -59,7 +59,7 @@ namespace ConsoleApplication1
             var app = new Application();
             //app.Dispatcher.Hooks.OperationPosted += OnDispatcherPosted;
 #if DISPATCHER
-            _timer = new DispatcherTimer(new TimeSpan(1000), DispatcherPriority.Render, OnDraw, app.Dispatcher);
+            _timer = new DispatcherTimer(new TimeSpan(1000), DispatcherPriority.Background, OnDraw, app.Dispatcher);
             _timer.Start();
 #endif
 
